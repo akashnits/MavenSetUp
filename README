@@ -1,0 +1,91 @@
+This article takes you through how you can create android modules and host them on GitHub as your private maven repos.
+
+Why it is required?
+To build a successful modular project it is important to keep the modules separate from any app, thus giving us more freedom to reuse it at later stages and plug it to any module we want with a single line implementation.
+Pre-requisites: 
+Please use latest gradle plugins in your projects. - This step is must
+Our implementation depends on 2 main GitHub repo:
+Android-Modules: This repo contains all the sample apps and modules with in it, main branch for this repo is 'modules'. the structure for this repo goes like this
+Sample-App → android-module 
+ex: Sample-VideoCall → videocall
+Android-Maven: This repo contains all the required maven artifacts for each of the modules we worked on in Android-Modules. 
+
+Clone both of the GitHub repos locally, 
+Note down  the local repo path of maven somewhere
+ex: localMavenRepo =  "Users/JohnDoe/Desktop/Android-Maven"
+
+Note down the remote maven repo path somewhere:
+ex: mavenRepo = "https://raw.githubusercontent.com/companyName/Android-Maven/master/".
+
+Extra Info: raw.githubusercontent.com gives raw data for the files you've pushed.
+
+
+
+Maven integration contains 2 steps:
+Publishing maven artifacts to GitHub 
+implementing maven integration from GitHub.
+
+1. Publishing Maven artifacts to Github:
+    Create a new project and corresponding module if required or do your changes in any existing project's module
+    Add the following line to your sample app's  root gradle
+    localMavenRepo =  "Users/JohnDoe/Desktop/Android-Maven" (this is what we copied earlier for local github  maven repo)
+   do the following changes to your sample app's module's gradle
+add maven plugin at the top of your module's gradle 
+apply plugin: 'maven-publish' 
+
+add task 
+task sourceJar(type: Jar) {
+               from android.sourceSets.main.java.srcDirs
+               classifier "sources"
+          }
+add publishing task.
+ publishing {
+      publications {
+          maven(MavenPublication) {
+              groupId 'com.companyName'  // this represents the group to which it belongs, for example general modules it'll be com.cnx for widgets it will be com.cnx.widget etc
+              artifactId 'videocall'  // this represents the name of module 
+              version '0.1'  // this represents version number of latest release
+              artifact(sourceJar)
+              artifact("$buildDir/outputs/aar/videocall-release.aar")  // this represents the name of aar file generated in the build directory (you may need to check your modules generated name)
+
+          }
+      }
+      repositories {
+          maven {
+              url "$localMavenRepo/videocall"  // this points out to the local maven repo where the generated artifacts needs to be saved
+          }
+      }
+  }
+once done with changes, execute the following commands to save the artifacts to local maven GitHub directory.
+./gradlew build 
+./gradlew publish 
+
+now the artifacts are saved in your local maven repo, cd  to that directory, commit and push to your remote maven repo (i.e., Android-Maven )
+Note for commit: when committing please make sure to put version number at the beginning of your commit message for reference followed by complete changelog
+2. Integrating published maven artifacts to your main app
+    Add the following line to your sample app's  root gradle
+    mavenRepo =  "https://raw.githubusercontent.com/companyname/Android-Maven/master/" (this is what we copied earlier for remote github  maven repo)
+    follow the below steps to include any module in your project
+ add following maven snippet to the main app's gradle
+maven{
+    url "$mavenRepo/videocall/" // this points to the remote repo and a particular directory ex: videocall for the artifacts
+
+
+    credentials(HttpHeaderCredentials){
+        name = "Authorization"
+        value = "Bearer YOUR_AUTH_TOKEN" // include your OAuth token here, this is needed since maven needs authorization for your private repo
+    }
+    authentication {
+        register("header", HttpHeaderAuthentication.class)
+    }
+}
+add following line for implementation in your app's gradle
+implementation 'com.cnx:videocall:0.1'
+
+Notes:
+please create your own OAuth Token and put read only access for the repos.
+
+References:
+for development you can use local maven as well before pushing them to remote, as this is beyond the scope of this article below is the link which will be useful
+https://proandroiddev.com/tip-work-with-third-party-projects-locally-with-gradle-961d6c9efb02
+
